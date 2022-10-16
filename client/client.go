@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"log"
@@ -25,11 +26,13 @@ type ClientIdCounter struct {
 func (c *Client) Work(cic *ClientIdCounter) {
 	c.GetId(cic)
 	c.RequestMenu()
-	c.GenerateOrders()
-
+	c.GenerateOrdersAndSendToOM()
+	time.Sleep(150 * 100 * time.Millisecond)
+	go func() { c.Work(cic) }()
+	time.Sleep(10 * time.Millisecond)
 }
 
-func (c *Client) GenerateOrders() {
+func (c *Client) GenerateOrdersAndSendToOM() {
 	resIdSlice := c.GenerateRandomRestaurantIds()
 	var orders structs.Orders
 	orders.ClientId = c.ClientId
@@ -45,8 +48,31 @@ func (c *Client) GenerateOrders() {
 		}()
 	}
 	wg.Wait()
-	log.Println(orders)
+	SendOrderToOM(&orders)
 
+}
+
+func SendOrderToOM(ords *structs.Orders) {
+
+	postBody, _ := json.Marshal(ords)
+	responseBody := bytes.NewBuffer(postBody)
+	resp, err := http.Post("http://localhost:5000/order", "application/json", responseBody)
+	if err != nil {
+		log.Fatalf("An Error Occured %v", err)
+	}
+	defer resp.Body.Close()
+	//Read the response body
+	body, err := ioutil.ReadAll(resp.Body)
+
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	var clientRes structs.ClientResponse
+	if err := json.Unmarshal([]byte(body), &clientRes); err != nil {
+		panic(err)
+	}
+	log.Println(clientRes)
 }
 
 func (c *Client) GetId(cic *ClientIdCounter) {

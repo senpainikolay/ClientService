@@ -34,3 +34,17 @@ type Orders struct {
 	ClientId int     `json:"client_id"`
 	Orders   []Order `json:"orders"`
 }
+
+type OMResponse struct {
+	RestaurantId         int     `json:"restaurant_id"`
+	RestaurantAddress    string  `json:"restaurant_address"`
+	OrderId              int     `json:"order_id"`
+	EstimatedWaitingTime float64 `json:"estimated_waiting_time"`
+	CreatedTime          int64   `json:"created_time"`
+	RegisteredTime       int64   `json:"registered_time"`
+}
+
+type ClientResponse struct {
+	OrderId int          `json:"order_id"`
+	Orders  []OMResponse `json:"orders"`
+}
