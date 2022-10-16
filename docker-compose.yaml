@@ -1,0 +1,14 @@
+services:
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile 
+      args:
+          configurations: configurations
+          port: 8070
+    ports:
+      - "8070:8070"
+networks:
+  default:
+    name: restaurant
+    external: true

@@ -23,16 +23,16 @@ type ClientIdCounter struct {
 	Mutex     sync.Mutex
 }
 
-func (c *Client) Work(cic *ClientIdCounter) {
+func (c *Client) Work(cic *ClientIdCounter, address string) {
 	c.GetId(cic)
-	c.RequestMenu()
-	c.GenerateOrdersAndSendToOM()
+	c.RequestMenu(address)
+	c.GenerateOrdersAndSendToOM(address)
 	time.Sleep(150 * 100 * time.Millisecond)
-	go func() { c.Work(cic) }()
+	go func() { c.Work(cic, address) }()
 	time.Sleep(10 * time.Millisecond)
 }
 
-func (c *Client) GenerateOrdersAndSendToOM() {
+func (c *Client) GenerateOrdersAndSendToOM(address string) {
 	resIdSlice := c.GenerateRandomRestaurantIds()
 	var orders structs.Orders
 	orders.ClientId = c.ClientId
@@ -48,15 +48,15 @@ func (c *Client) GenerateOrdersAndSendToOM() {
 		}()
 	}
 	wg.Wait()
-	SendOrderToOM(&orders)
+	SendOrderToOM(&orders, address)
 
 }
 
-func SendOrderToOM(ords *structs.Orders) {
+func SendOrderToOM(ords *structs.Orders, address string) {
 
 	postBody, _ := json.Marshal(ords)
 	responseBody := bytes.NewBuffer(postBody)
-	resp, err := http.Post("http://localhost:5000/order", "application/json", responseBody)
+	resp, err := http.Post("http://"+address+"/order", "application/json", responseBody)
 	if err != nil {
 		log.Fatalf("An Error Occured %v", err)
 	}
@@ -126,8 +126,8 @@ func (c *Client) GenerateOneOrder(resId int) structs.Order {
 
 }
 
-func (c *Client) RequestMenu() {
-	resp, err := http.Get("http://localhost:5000/menu")
+func (c *Client) RequestMenu(address string) {
+	resp, err := http.Get("http://" + address + "/menu")
 	if err != nil {
 		log.Fatalf("An Error Occured %v", err)
 	}

@@ -14,6 +14,7 @@ import (
 func main() {
 	r := mux.NewRouter()
 	rand.Seed(time.Now().UnixMilli())
+	conf := structs.GetConf()
 	var clients []client.Client
 	clientIdCounter := client.ClientIdCounter{0, sync.Mutex{}}
 	for i := 0; i < 5; i++ {
@@ -23,10 +24,10 @@ func main() {
 		id := i
 		go func() {
 
-			clients[id].Work(&clientIdCounter)
+			clients[id].Work(&clientIdCounter, conf.OMAddress)
 
 		}()
 
 	}
-	http.ListenAndServe(":8070", r)
+	http.ListenAndServe(":"+conf.Port, r)
 }

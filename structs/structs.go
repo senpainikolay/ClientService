@@ -1,5 +1,12 @@
 package structs
 
+import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"os"
+)
+
 type Food struct {
 	Id               int    `json:"id"`
 	Name             string `json:"name"`
@@ -47,4 +54,22 @@ type OMResponse struct {
 type ClientResponse struct {
 	OrderId int          `json:"order_id"`
 	Orders  []OMResponse `json:"orders"`
+}
+
+type Conf struct {
+	Port      string `json:"port"`
+	OMAddress string `json:"om_address"`
+}
+
+func GetConf() *Conf {
+	jsonFile, err := os.Open("configurations/Conf.json")
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer jsonFile.Close()
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+	var conf Conf
+	json.Unmarshal(byteValue, &conf)
+	return &conf
+
 }

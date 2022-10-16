@@ -1,0 +1,4 @@
+{ 
+    "port": "8070", 
+    "om_address" : "ordermanager:5000"
+}
