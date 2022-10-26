@@ -27,27 +27,30 @@ func (c *Client) Work(cic *ClientIdCounter, address string) {
 	c.GetId(cic)
 	c.RequestMenu(address)
 	c.GenerateOrdersAndSendToOM(address)
-	time.Sleep(150 * 100 * time.Millisecond)
+	time.Sleep(time.Duration(rand.Intn(40)+70) * 100 * time.Millisecond)
 	go func() { c.Work(cic, address) }()
 	time.Sleep(10 * time.Millisecond)
 }
 
 func (c *Client) GenerateOrdersAndSendToOM(address string) {
 	resIdSlice := c.GenerateRandomRestaurantIds()
+	log.Println(resIdSlice)
+
 	var orders structs.Orders
 	orders.ClientId = c.ClientId
 	var wg sync.WaitGroup
 	wg.Add(len(resIdSlice))
-	for i := range resIdSlice {
-		id := i
+	for _, id := range resIdSlice {
+		idx_id := id
 		go func() {
-			ord := c.GenerateOneOrder(id)
-			ord.RestaurantId = id + 1
+			ord := c.GenerateOneOrder(idx_id)
+			ord.RestaurantId = c.ResInfo.RestaurantsData[idx_id].RestaurantId
 			orders.Orders = append(orders.Orders, ord)
 			wg.Done()
 		}()
 	}
 	wg.Wait()
+	log.Println(orders)
 	SendOrderToOM(&orders, address)
 
 }
@@ -62,6 +65,7 @@ func SendOrderToOM(ords *structs.Orders, address string) {
 	}
 	defer resp.Body.Close()
 	//Read the response body
+
 	body, err := ioutil.ReadAll(resp.Body)
 
 	if err != nil {
@@ -72,7 +76,9 @@ func SendOrderToOM(ords *structs.Orders, address string) {
 	if err := json.Unmarshal([]byte(body), &clientRes); err != nil {
 		panic(err)
 	}
+
 	log.Println(clientRes)
+
 }
 
 func (c *Client) GetId(cic *ClientIdCounter) {
@@ -105,13 +111,13 @@ func (c *Client) GenerateRandomRestaurantIds() []int {
 
 }
 
-func (c *Client) GenerateOneOrder(resId int) structs.Order {
-	items := make([]int, rand.Intn(10)+1)
+func (c *Client) GenerateOneOrder(idx_resId int) structs.Order {
+	items := make([]int, rand.Intn(8)+1)
 	maxWaitInt := 0
 	for i := range items {
-		items[i] = rand.Intn(c.ResInfo.RestaurantsData[resId].MenuItems) + 1
-		if c.ResInfo.RestaurantsData[resId].Menu[items[i]-1].PreparationTime > maxWaitInt {
-			maxWaitInt = c.ResInfo.RestaurantsData[resId].Menu[items[i]-1].PreparationTime
+		items[i] = rand.Intn(c.ResInfo.RestaurantsData[idx_resId].MenuItems) + 1
+		if c.ResInfo.RestaurantsData[idx_resId].Menu[items[i]-1].PreparationTime > maxWaitInt {
+			maxWaitInt = c.ResInfo.RestaurantsData[idx_resId].Menu[items[i]-1].PreparationTime
 		}
 	}
 	priority := rand.Intn(5) + 1

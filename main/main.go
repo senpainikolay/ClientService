@@ -17,10 +17,10 @@ func main() {
 	conf := structs.GetConf()
 	var clients []client.Client
 	clientIdCounter := client.ClientIdCounter{0, sync.Mutex{}}
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 2; i++ {
 		clients = append(clients, client.Client{-1, structs.MenuGet{}})
 	}
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 2; i++ {
 		id := i
 		go func() {
 

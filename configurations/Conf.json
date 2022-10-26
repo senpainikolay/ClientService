@@ -1,4 +1,4 @@
 { 
     "port": "8070", 
-    "om_address" : "ordermanager:5000"
+    "om_address" : "localhost:5000"
 }

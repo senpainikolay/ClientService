@@ -18,10 +18,11 @@ type Food struct {
 type Menu []Food
 
 type RestaurantData struct {
-	Name      string  `json:"name"`
-	MenuItems int     `json:"menu_items"`
-	Menu      Menu    `json:"menu"`
-	Rating    float64 `json:"rating"`
+	RestaurantId int     `json:"restaurant_id"`
+	Name         string  `json:"name"`
+	MenuItems    int     `json:"menu_items"`
+	Menu         Menu    `json:"menu"`
+	Rating       float64 `json:"rating"`
 }
 
 type MenuGet struct {
