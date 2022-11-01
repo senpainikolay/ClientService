@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -26,16 +27,65 @@ type ClientIdCounter struct {
 func (c *Client) Work(cic *ClientIdCounter, address string) {
 	c.GetId(cic)
 	c.RequestMenu(address)
-	c.GenerateOrdersAndSendToOM(address)
-	time.Sleep(time.Duration(rand.Intn(40)+70) * 100 * time.Millisecond)
+	ordersStatus := c.GenerateOrdersAndSendToOM(address, cic)
+	ordersLen := len(ordersStatus.Orders)
+	if ordersLen != 0 {
+		log.Printf("Client ID %v order send to FoodOrdering", c.ClientId)
+		var wg sync.WaitGroup
+		wg.Add(ordersLen)
+		for _, or := range ordersStatus.Orders {
+			order := or
+			go func() {
+				timeToSleep := time.Duration(order.EstimatedWaitingTime)
+				for {
+					time.Sleep(timeToSleep * 100 * time.Millisecond)
+					respOrdStatus := SendGetOrderStatusToRes(order.RestaurantAddress, order.OrderId)
+					if respOrdStatus.IsReady {
+						// Logic For Order Ready
+						break
+					} else {
+						timeToSleep = time.Duration(respOrdStatus.EstimatedWaitingTime)
+					}
+				}
+				wg.Done()
+			}()
+		}
+
+		wg.Wait()
+		log.Printf("Client ID %v Succesfully recieved the order back", c.ClientId)
+	} else {
+		// Restaurant full, cancels the Client.
+		// log.Println("RIPP")
+		time.Sleep(100 * 50 * time.Millisecond)
+	}
+	// Generate new Client
 	go func() { c.Work(cic, address) }()
-	time.Sleep(10 * time.Millisecond)
+
 }
 
-func (c *Client) GenerateOrdersAndSendToOM(address string) {
-	resIdSlice := c.GenerateRandomRestaurantIds()
-	log.Println(resIdSlice)
+func SendGetOrderStatusToRes(address string, id int) *structs.ClientOrderStatus {
 
+	resp, err := http.Get("http://" + address + "/v2/order/" + fmt.Sprint(id))
+	if err != nil {
+		log.Fatalf("An Error Occured %v", err)
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	var ordInfo structs.ClientOrderStatus
+	if err := json.Unmarshal([]byte(body), &ordInfo); err != nil {
+		panic(err)
+	}
+	return &ordInfo
+
+}
+
+func (c *Client) GenerateOrdersAndSendToOM(address string, cic *ClientIdCounter) *structs.ClientResponse {
+	resIdSlice := c.GenerateRandomRestaurantIds()
+	// log.Println(resIdSlice)
 	var orders structs.Orders
 	orders.ClientId = c.ClientId
 	var wg sync.WaitGroup
@@ -50,12 +100,11 @@ func (c *Client) GenerateOrdersAndSendToOM(address string) {
 		}()
 	}
 	wg.Wait()
-	log.Println(orders)
-	SendOrderToOM(&orders, address)
+	return SendOrderToOM(&orders, address, cic)
 
 }
 
-func SendOrderToOM(ords *structs.Orders, address string) {
+func SendOrderToOM(ords *structs.Orders, address string, cic *ClientIdCounter) *structs.ClientResponse {
 
 	postBody, _ := json.Marshal(ords)
 	responseBody := bytes.NewBuffer(postBody)
@@ -77,7 +126,11 @@ func SendOrderToOM(ords *structs.Orders, address string) {
 		panic(err)
 	}
 
-	log.Println(clientRes)
+	if len(clientRes.Orders) == 0 {
+		decreaseId(cic)
+	}
+
+	return &clientRes
 
 }
 
@@ -85,6 +138,13 @@ func (c *Client) GetId(cic *ClientIdCounter) {
 	cic.Mutex.Lock()
 	cic.IdCounter += 1
 	c.ClientId = cic.IdCounter
+	cic.Mutex.Unlock()
+
+}
+
+func decreaseId(cic *ClientIdCounter) {
+	cic.Mutex.Lock()
+	cic.IdCounter -= 1
 	cic.Mutex.Unlock()
 
 }

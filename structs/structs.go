@@ -62,6 +62,24 @@ type Conf struct {
 	OMAddress string `json:"om_address"`
 }
 
+type ClientOrderStatus struct {
+	OrderId              int              `json:"order_id"`
+	IsReady              bool             `json:"is_ready"`
+	EstimatedWaitingTime float64          `json:"estimated_waiting_time"`
+	Priority             int              `json:"priority"`
+	MaxWait              float64          `json:"max_wait"`
+	CreatedTime          int64            `json:"created_time"`
+	RegisteredTime       int              `json:"registered_time"`
+	PreparedTime         int64            `json:"prepared_time"`
+	CookingTime          int64            `json:"cooking_time"`
+	CookingDetails       []CookingDetails `json:"cooking_details"`
+}
+
+type CookingDetails struct {
+	CookId int `json:"cook_id"`
+	FoodId int `json:"food_id"`
+}
+
 func GetConf() *Conf {
 	jsonFile, err := os.Open("configurations/Conf.json")
 	if err != nil {
