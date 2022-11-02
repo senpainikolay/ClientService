@@ -31,6 +31,7 @@ func (c *Client) Work(cic *ClientIdCounter, address string) {
 	ordersLen := len(ordersStatus.Orders)
 	if ordersLen != 0 {
 		log.Printf("Client ID %v order send to FoodOrdering", c.ClientId)
+		var clientPostRating = structs.ClientPostRating{ClientId: c.ClientId, OrderId: ordersStatus.OrderId}
 		var wg sync.WaitGroup
 		wg.Add(ordersLen)
 		for _, or := range ordersStatus.Orders {
@@ -42,6 +43,16 @@ func (c *Client) Work(cic *ClientIdCounter, address string) {
 					respOrdStatus := SendGetOrderStatusToRes(order.RestaurantAddress, order.OrderId)
 					if respOrdStatus.IsReady {
 						// Logic For Order Ready
+						timeRecieved := (time.Now().UnixMilli() - respOrdStatus.CreatedTime) / 100
+						clientPostRating.Orders = append(clientPostRating.Orders, structs.RatingOrder{
+							RestaurantId:         order.RestaurantId,
+							OrderId:              order.OrderId,
+							Rating:               CalculateRating(respOrdStatus.MaxWait, float64(timeRecieved)),
+							EstimatedWaitingTime: order.EstimatedWaitingTime,
+							WaitingTime:          int(timeRecieved),
+						})
+						log.Printf("MAXWAIT: %v  , TIME: %v \n", respOrdStatus.MaxWait, timeRecieved)
+
 						break
 					} else {
 						timeToSleep = time.Duration(respOrdStatus.EstimatedWaitingTime)
@@ -53,6 +64,9 @@ func (c *Client) Work(cic *ClientIdCounter, address string) {
 
 		wg.Wait()
 		log.Printf("Client ID %v Succesfully recieved the order back", c.ClientId)
+
+		SendRatingPostToOM(&clientPostRating, address)
+
 	} else {
 		// Restaurant full, cancels the Client.
 		// log.Println("RIPP")
@@ -60,26 +74,6 @@ func (c *Client) Work(cic *ClientIdCounter, address string) {
 	}
 	// Generate new Client
 	go func() { c.Work(cic, address) }()
-
-}
-
-func SendGetOrderStatusToRes(address string, id int) *structs.ClientOrderStatus {
-
-	resp, err := http.Get("http://" + address + "/v2/order/" + fmt.Sprint(id))
-	if err != nil {
-		log.Fatalf("An Error Occured %v", err)
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	var ordInfo structs.ClientOrderStatus
-	if err := json.Unmarshal([]byte(body), &ordInfo); err != nil {
-		panic(err)
-	}
-	return &ordInfo
 
 }
 
@@ -101,6 +95,17 @@ func (c *Client) GenerateOrdersAndSendToOM(address string, cic *ClientIdCounter)
 	}
 	wg.Wait()
 	return SendOrderToOM(&orders, address, cic)
+
+}
+
+func SendRatingPostToOM(payload *structs.ClientPostRating, address string) {
+	postBody, _ := json.Marshal(payload)
+	responseBody := bytes.NewBuffer(postBody)
+	resp, err := http.Post("http://"+address+"/rating", "application/json", responseBody)
+	if err != nil {
+		log.Fatalf("An Error Occured %v", err)
+	}
+	resp.Body.Close()
 
 }
 
@@ -209,5 +214,45 @@ func (c *Client) RequestMenu(address string) {
 	}
 	c.ResInfo = menuInfo
 	// log.Println(menuInfo)
+
+}
+func SendGetOrderStatusToRes(address string, id int) *structs.ClientOrderStatus {
+
+	resp, err := http.Get("http://" + address + "/v2/order/" + fmt.Sprint(id))
+	if err != nil {
+		log.Fatalf("An Error Occured %v", err)
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	var ordInfo structs.ClientOrderStatus
+	if err := json.Unmarshal([]byte(body), &ordInfo); err != nil {
+		panic(err)
+	}
+	return &ordInfo
+
+}
+
+func CalculateRating(maxWait float64, timeServed float64) int {
+
+	if timeServed <= maxWait {
+		return 5
+	}
+	if timeServed <= maxWait*1.1 {
+		return 4
+	}
+	if timeServed <= maxWait*1.2 {
+		return 3
+	}
+	if timeServed <= maxWait*1.3 {
+		return 2
+	}
+	if timeServed <= maxWait*1.4 {
+		return 1
+	}
+	return 0
 
 }

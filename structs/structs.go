@@ -92,3 +92,17 @@ func GetConf() *Conf {
 	return &conf
 
 }
+
+type ClientPostRating struct {
+	ClientId int           `json:"client_id"`
+	OrderId  int           `json:"order_id"`
+	Orders   []RatingOrder `json:"orders"`
+}
+
+type RatingOrder struct {
+	RestaurantId         int     `json:"restaurant_id"`
+	OrderId              int     `json:"order_id"`
+	Rating               int     `json:"rating"`
+	EstimatedWaitingTime float64 `json:"estimated_waiting_time"`
+	WaitingTime          int     `json:"waiting_time"`
+}
